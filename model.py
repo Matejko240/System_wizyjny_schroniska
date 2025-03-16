@@ -10,19 +10,19 @@ def create_model(img_size, num_classes):
         Input(shape=(img_size, img_size, 3)),
         layers.Conv2D(32, (3,3), activation='relu'),
         layers.MaxPooling2D(2,2),
-        Dropout(0.2),  # ✅ Dodano dropout
+        #Dropout(0.2),  # ✅ Dodano dropout
         
         layers.Conv2D(64, (3,3), activation='relu'),
         layers.MaxPooling2D(2,2),
-        Dropout(0.3),  # ✅ Więcej dropout
+        #Dropout(0.3),  # ✅ Więcej dropout
         
         layers.Conv2D(128, (3,3), activation='relu'),
         layers.MaxPooling2D(2,2),
-        Dropout(0.4),
+        #Dropout(0.4),
         
         layers.Flatten(),
         layers.Dense(128, activation='relu'),
-        Dropout(0.5),  # ✅ Zapobiega przeuczeniu
+        #Dropout(0.5),  # ✅ Zapobiega przeuczeniu
         layers.Dense(num_classes, activation='softmax')
     ])
 

@@ -45,14 +45,5 @@ def split_dataset(data, labels, test_size=0.2):
     """Dzieli dane na zestawy treningowe i testowe."""
     return train_test_split(data, labels, test_size=test_size, random_state=42)
 
-datagen = ImageDataGenerator(
-    rotation_range=40,  # ⬆️ Większy zakres rotacji
-    width_shift_range=0.3,  # ⬆️ Większe przesunięcia
-    height_shift_range=0.3,
-    shear_range=0.3,  # ⬆️ Większe zniekształcenia
-    zoom_range=0.3,  # ⬆️ Większy zoom
-    horizontal_flip=True,
-    brightness_range=[0.7, 1.3],  # ⬆️ Dodatkowo zmiana jasności
-    fill_mode="nearest"
-)
+
 

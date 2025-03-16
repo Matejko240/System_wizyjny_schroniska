@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 from tensorflow.keras.models import load_model
-from dataset_loader import CATEGORIES, DATASET_PATH, load_images, split_dataset, datagen
+from dataset_loader import CATEGORIES, DATASET_PATH, load_images, split_dataset
 from model import create_model
 from classifier import classify_animal
 
@@ -25,9 +25,7 @@ if not MODEL_PATH.exists():
     model = create_model(128, len(CATEGORIES))
 
     # Trenowanie modelu z augmentacją
-    model.fit(datagen.flow(X_train, y_train, batch_size=32), 
-              epochs=20, 
-              validation_data=(X_test, y_test))
+    model.fit(X_train, y_train, epochs=10, validation_data=(X_test, y_test))
 
     # Zapis modelu
     model.save(MODEL_PATH)
@@ -40,7 +38,7 @@ else:
 
 # Ścieżka do folderu walidacyjnego
 VAL_PATH = Path(__file__).parent / "dataset" / "val"
-
+TEST_PATH = Path(__file__).parent / "dataset" / "test"
 def get_random_image(val_path, categories):
     """Losuje losowy obrazek z walidacyjnego zbioru danych"""
     category = random.choice(categories)
@@ -92,5 +90,5 @@ else:
     print("❌ Nie udało się wylosować obrazka.")
 
 # Sprawdzenie konkretnego obrazka po ścieżce
-CUSTOM_IMAGE_PATH = r"C:\Users\rjane\Desktop\projekty\System_wizyjny_schroniska\naklejka-twarz-leoparda.jpg"
+CUSTOM_IMAGE_PATH = TEST_PATH / "gandalf.jpg"
 classify_custom_image(CUSTOM_IMAGE_PATH)
