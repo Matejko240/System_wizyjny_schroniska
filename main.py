@@ -33,7 +33,7 @@ if not MODEL_PATH.exists():
 else:
     print("📂 Wczytuję istniejący model...")
     model = load_model(MODEL_PATH)
-    model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])  # ✅ Dodaj kompilację
+    model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])  # Dodaj kompilację
 
 
 # Ścieżka do folderu walidacyjnego
@@ -88,7 +88,21 @@ if random_image_path:
     print(f"🤖 Wynik klasyfikacji: {predicted_result}")
 else:
     print("❌ Nie udało się wylosować obrazka.")
+    
+def classify_all_images_in_folder(folder_path):
+    """Przetwarza wszystkie obrazy w podanym folderze testowym."""
+    folder = Path(folder_path)
+    if not folder.exists() or not folder.is_dir():
+        print(f"❌ Błąd: Folder {folder_path} nie istnieje lub nie jest katalogiem!")
+        return
+
+    for image_name in os.listdir(folder):
+        image_path = folder / image_name
+        if image_path.is_file():
+            print(f"🔍 Sprawdzam obrazek: {image_name}")
+            classify_custom_image(str(image_path))  # Używa już istniejącej funkcji
 
 # Sprawdzenie konkretnego obrazka po ścieżce
 CUSTOM_IMAGE_PATH = TEST_PATH / "gandalf.jpg"
-classify_custom_image(CUSTOM_IMAGE_PATH)
+#classify_custom_image(CUSTOM_IMAGE_PATH)
+classify_all_images_in_folder(TEST_PATH)
