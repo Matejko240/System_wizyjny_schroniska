@@ -1,108 +1,31 @@
 import os
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
-import random
-import cv2
-import numpy as np
-import matplotlib.pyplot as plt
 from pathlib import Path
 from tensorflow.keras.models import load_model
-from dataset_loader import CATEGORIES, DATASET_PATH, load_images, split_dataset
-from model import create_model
-from classifier import classify_animal
+from dataset_loader import CATEGORIES, DATASET_PATH, VAL_PATH, TEST_PATH, get_random_image, show_image
+from model import load_or_train_model
+from classifier import classify_random_image, classify_all_images_in_folder
+
+# Parametry użytkownika
+EPOCHS = 30  # Ustaw tutaj liczbę epok
+SHOW_IMAGES = True # Jeśli True -> obrazy będą wyświetlane, jeśli False -> tylko klasyfikacja w terminalu
 
 # Ścieżka do modelu
-MODEL_PATH = Path(__file__).parent / "animal_model.h5"
+MODEL_PATH = Path(__file__).parent / "animal_model.keras"
 
-# Trenowanie modelu, jeśli nie istnieje
-if not MODEL_PATH.exists():
-    print("🚀 Brak modelu, rozpoczynam trenowanie...")
-    
-    # Wczytanie danych
-    data, labels = load_images(DATASET_PATH, CATEGORIES, 128)
-    X_train, X_test, y_train, y_test = split_dataset(data, labels)
+# Wczytanie lub trening modelu
+model = load_or_train_model(MODEL_PATH, DATASET_PATH, CATEGORIES, epochs=EPOCHS)
 
-    # Stworzenie modelu
-    model = create_model(128, len(CATEGORIES))
-
-    # Trenowanie modelu z augmentacją
-    model.fit(X_train, y_train, epochs=10, validation_data=(X_test, y_test))
-
-    # Zapis modelu
-    model.save(MODEL_PATH)
-    print("✅ Model zapisany jako", MODEL_PATH)
-else:
-    print("📂 Wczytuję istniejący model...")
-    model = load_model(MODEL_PATH)
-    model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])  # Dodaj kompilację
-
-
-# Ścieżka do folderu walidacyjnego
-VAL_PATH = Path(__file__).parent / "dataset" / "val"
-TEST_PATH = Path(__file__).parent / "dataset" / "test"
-def get_random_image(val_path, categories):
-    """Losuje losowy obrazek z walidacyjnego zbioru danych"""
-    category = random.choice(categories)
-    category_path = val_path / category
-    if not category_path.exists():
-        return None, None
-    images = os.listdir(category_path)
-    if not images:
-        return None, None
-    image_name = random.choice(images)
-    return str(category_path / image_name), category
-
-def show_image(image_path):
-    """Wyświetla obrazek za pomocą Matplotlib i nie blokuje kodu"""
-    img = cv2.imread(image_path)
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  # OpenCV używa BGR zamiast RGB
-    plt.imshow(img)
-    plt.axis("off")  # Ukryj osie
-    plt.show(block=False)
-    plt.pause(5)
-    plt.close()
-
-def classify_custom_image(image_path):
-    """Sprawdza konkretny obrazek po podanej ścieżce"""
-    if not os.path.exists(image_path):
-        print(f"❌ Błąd: Plik {image_path} nie istnieje!")
-        return
-
-    print(f"🔍 Sprawdzam obrazek: {image_path}")
-
-    # Wyświetlenie obrazka
-    show_image(image_path)
-
-    # Klasyfikacja obrazka
-    result = classify_animal(image_path, model, CATEGORIES, 128)
-    print(f"🤖 Wynik klasyfikacji: {result}")
-
-# Wczytanie losowego obrazka z folderu walidacyjnego
+# Wylosowanie losowego obrazka z walidacyjnego zbioru danych
 random_image_path, actual_category = get_random_image(VAL_PATH, CATEGORIES)
 
-if random_image_path:
-    print(f"🖼️ Wylosowany obrazek: {random_image_path}")
-    print(f"✅ Faktyczna kategoria: {actual_category}")
+# Klasyfikacja losowego obrazka z walidacyjnego zbioru danych
+classify_random_image(VAL_PATH, model, CATEGORIES, 128, show_images=SHOW_IMAGES)
 
-    show_image(random_image_path)
-    predicted_result = classify_animal(random_image_path, model, CATEGORIES, 128)
-    print(f"🤖 Wynik klasyfikacji: {predicted_result}")
-else:
-    print("❌ Nie udało się wylosować obrazka.")
-    
-def classify_all_images_in_folder(folder_path):
-    """Przetwarza wszystkie obrazy w podanym folderze testowym."""
-    folder = Path(folder_path)
-    if not folder.exists() or not folder.is_dir():
-        print(f"❌ Błąd: Folder {folder_path} nie istnieje lub nie jest katalogiem!")
-        return
-
-    for image_name in os.listdir(folder):
-        image_path = folder / image_name
-        if image_path.is_file():
-            print(f"🔍 Sprawdzam obrazek: {image_name}")
-            classify_custom_image(str(image_path))  # Używa już istniejącej funkcji
+# Klasyfikacja wszystkich obrazów w folderze testowym
+classify_all_images_in_folder(TEST_PATH, model, CATEGORIES, 128, show_images=SHOW_IMAGES)
 
 # Sprawdzenie konkretnego obrazka po ścieżce
-CUSTOM_IMAGE_PATH = TEST_PATH / "gandalf.jpg"
+#CUSTOM_IMAGE_PATH = TEST_PATH / "gandalf.jpg"
 #classify_custom_image(CUSTOM_IMAGE_PATH)
-classify_all_images_in_folder(TEST_PATH)
+
