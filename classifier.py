@@ -14,7 +14,7 @@ def classify_animal(image_path, model, categories, img_size):
     prediction = model.predict(img)[0]  # Pobiera wynik jako tablicę
     predicted_class = np.argmax(prediction)
 
-    # ✅ Wyświetlenie dokładnych procentowych wyników
+    # Wyświetlenie dokładnych procentowych wyników
     for i, category in enumerate(categories):
         print(f"{category}: {prediction[i] * 100:.2f}%")
 
