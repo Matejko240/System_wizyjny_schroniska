@@ -10,6 +10,7 @@ from classifier import classify_random_images, classify_all_images_in_folder
 EPOCHS = 30  # Ustaw tutaj liczbę epok
 SHOW_IMAGES = True # Jeśli True -> obrazy będą wyświetlane, jeśli False -> tylko klasyfikacja w terminalu
 NUM_IMAGES = 5 # Ilość obrazków z folderu walidacyjnego
+
 # Ścieżka do modelu
 MODEL_PATH = Path(__file__).parent / "animal_model.keras"
 
