@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 from pathlib import Path
 import os
-from dataset_loader import get_random_image, show_image
+from dataset_loader import get_random_images, show_image
 
 def classify_animal(image_path, model, categories, img_size):
     """Klasyfikuje obrazek zwierzęcia i zwraca decyzję."""
@@ -22,22 +22,26 @@ def classify_animal(image_path, model, categories, img_size):
 
     animal = categories[predicted_class]
     access = "Dostęp przyznany" if animal in ["cat", "dog"] else "Dostęp zabroniony"
-    return f"Rozpoznano: {animal}. {access} \n================================================================"
+    return f"Rozpoznano: {animal}. {access} \n" + "=" * 64
 
-def classify_random_image(val_path, model, categories, img_size, show_images=False):
-    """Losuje obrazek z folderu walidacyjnego, wyświetla go i klasyfikuje."""
-    random_image_path, actual_category = get_random_image(val_path, categories)
+def classify_random_images(val_path, model, categories, img_size, num_images=1, show_images=False):
+    """Losuje podaną liczbę obrazków z folderu walidacyjnego, wyświetla je i klasyfikuje."""
+    random_images = get_random_images(val_path, categories, num_images)
 
-    if random_image_path:
-        print(f"🖼️ Wylosowany obrazek: {random_image_path}")
+    if not random_images:
+        print("❌ Nie udało się wylosować obrazków.")
+        return
+    
+    for image_path, actual_category in random_images:
+        print(f"🖼️ Wylosowany obrazek: {image_path}")
         print(f"✅ Faktyczna kategoria: {actual_category}")
-        
+
         if show_images:
-                show_image(random_image_path)
-                
-        print(f"🤖 Wynik klasyfikacji: {classify_animal(random_image_path, model, categories, img_size)}")
-    else:
-        print("❌ Nie udało się wylosować obrazka.")
+            show_image(image_path)
+        
+        print(f"🤖 Wynik klasyfikacji: {classify_animal(image_path, model, categories, img_size)}")
+
+
         
 def classify_all_images_in_folder(folder_path, model, categories, img_size, show_images=False):
     """Przetwarza wszystkie obrazy w podanym folderze testowym. Może wyświetlać obrazy, jeśli show_images=True."""

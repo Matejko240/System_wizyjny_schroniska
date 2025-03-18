@@ -5,6 +5,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 import matplotlib.pyplot as plt
+import random
 
 BASE_DIR = Path(__file__).parent
 DATASET_PATH = BASE_DIR / "dataset" / "train"
@@ -46,18 +47,24 @@ def split_dataset(data, labels, test_size=0.2):
     """Dzieli dane na zestawy treningowe i testowe."""
     return train_test_split(data, labels, test_size=test_size, random_state=42)
 
-def get_random_image(val_path, categories):
-    """Losuje losowy obrazek z walidacyjnego zbioru danych."""
-    import random
-    category = random.choice(categories)
-    category_path = val_path / category
-    if not category_path.exists():
-        return None, None
-    images = os.listdir(category_path)
-    if not images:
-        return None, None
-    image_name = random.choice(images)
-    return str(category_path / image_name), category
+
+
+def get_random_images(val_path, categories, num_images=1):
+    """Losuje podaną liczbę obrazków z walidacyjnego zbioru danych."""
+    image_list = []
+    
+    for _ in range(num_images):
+        category = random.choice(categories)
+        category_path = val_path / category
+        if not category_path.exists():
+            continue
+        images = os.listdir(category_path)
+        if not images:
+            continue
+        image_name = random.choice(images)
+        image_list.append((str(category_path / image_name), category))
+    
+    return image_list
 
 def show_image(image_path):
     """Wyświetla obrazek za pomocą Matplotlib i pokazuje jego nazwę nad nim."""
