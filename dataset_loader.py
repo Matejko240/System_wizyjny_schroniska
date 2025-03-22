@@ -1,22 +1,14 @@
-from pathlib import Path
 import os
 import cv2
 import numpy as np
+from pathlib import Path
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 import matplotlib.pyplot as plt
 import random
+from constants import IMG_SIZE, CATEGORIES, VAL_PATH
 
-BASE_DIR = Path(__file__).parent
-DATASET_PATH = BASE_DIR / "dataset" / "train"
-VAL_PATH = BASE_DIR / "dataset" / "val"
-TEST_PATH = BASE_DIR / "dataset" / "test"
-
-CATEGORIES = ["cat", "wild", "dog"]
-IMG_SIZE = 128  
-
-def load_images(dataset_path, categories, img_size):
-    """Wczytuje i przetwarza obrazy do treningu."""
+def load_images(dataset_path, categories=CATEGORIES, img_size=IMG_SIZE):
     data, labels = [], []
     for category in categories:
         path = dataset_path / category
@@ -44,15 +36,11 @@ def load_images(dataset_path, categories, img_size):
     return np.array(data) / 255.0, np.array(labels)
 
 def split_dataset(data, labels, test_size=0.2):
-    """Dzieli dane na zestawy treningowe i testowe."""
     return train_test_split(data, labels, test_size=test_size, random_state=42)
 
-
-
-def get_random_images(val_path, categories, num_images=1):
-    """Losuje podaną liczbę obrazków z walidacyjnego zbioru danych."""
+def get_random_images(val_path=VAL_PATH, categories=CATEGORIES, num_images=1):
     image_list = []
-    
+
     for _ in range(num_images):
         category = random.choice(categories)
         category_path = val_path / category
@@ -63,21 +51,20 @@ def get_random_images(val_path, categories, num_images=1):
             continue
         image_name = random.choice(images)
         image_list.append((str(category_path / image_name), category))
-    
+
     return image_list
 
 def show_image(image_path):
-    """Wyświetla obrazek za pomocą Matplotlib i pokazuje jego nazwę nad nim."""
     if not os.path.exists(image_path):
         print(f"❌ Błąd: Plik {image_path} nie istnieje!")
         return
 
     img = cv2.imread(image_path)
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
     plt.imshow(img)
-    plt.axis("off")  
-    plt.title(f"Nazwa pliku: {os.path.basename(image_path)}", fontsize=12, fontweight="bold")  # Dodanie tytułu
+    plt.axis("off")
+    plt.title(f"Nazwa pliku: {os.path.basename(image_path)}", fontsize=12, fontweight="bold")
     plt.show(block=False)
-    plt.pause(5)  # Wyświetlanie przez 5 sekund
+    plt.pause(5)
     plt.close()

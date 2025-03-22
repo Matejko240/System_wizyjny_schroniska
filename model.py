@@ -4,6 +4,17 @@ from tensorflow.keras import layers, Input
 from tensorflow.keras.models import load_model
 from dataset_loader import load_images, split_dataset
 
+_log_callback = print  # Domyślna funkcja logująca
+
+def set_logger(logger_function):
+    """Ustawia funkcję logującą komunikaty (np. do GUI)."""
+    global _log_callback
+    _log_callback = logger_function
+
+def log(msg):
+    """Loguje wiadomość za pomocą aktualnie ustawionej funkcji."""
+    _log_callback(str(msg))
+
 def create_model(img_size, num_classes):
     """Tworzy i zwraca ulepszony model CNN do klasyfikacji zwierząt."""
     model = keras.Sequential([
@@ -26,20 +37,28 @@ def create_model(img_size, num_classes):
     return model
 
 def load_or_train_model(model_path, dataset_path, categories, img_size=128, epochs=10):
-    """Ładuje model z pliku lub trenuje nowy, jeśli model nie istnieje."""
+    """Ładuje model z pliku lub trenuje nowy, jeśli model nie istnieje.
+    Zwraca model oraz historię trenowania (jeśli dotyczy)."""
+
     if model_path.exists():
-        print("📂 Wczytuję istniejący model...")
+        log("📂 Wczytuję istniejący model...")
         model = load_model(model_path)
         model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-    else:
-        print(f"🚀 Brak modelu, rozpoczynam trenowanie na {epochs} epokach...")
-        data, labels = load_images(dataset_path, categories, img_size)
-        X_train, X_test, y_train, y_test = split_dataset(data, labels)
+        return model, None  # Brak historii, bo model już był
 
-        model = create_model(img_size, len(categories))
-        model.fit(X_train, y_train, epochs=epochs, validation_data=(X_test, y_test))
+    log(f"🚀 Brak modelu, rozpoczynam trenowanie na {epochs} epokach...")
+    data, labels = load_images(dataset_path, categories, img_size)
+    X_train, X_test, y_train, y_test = split_dataset(data, labels)
 
-        model.save(model_path)
-        print("✅ Model zapisany jako", model_path)
+    model = create_model(img_size, len(categories))
 
-    return model
+    history = model.fit(
+        X_train, y_train,
+        epochs=epochs,
+        validation_data=(X_test, y_test)
+    )
+
+    model.save(model_path)
+    log(f"✅ Model zapisany jako {model_path}")
+
+    return model, history
