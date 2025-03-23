@@ -4,15 +4,8 @@ from pathlib import Path
 import os
 from dataset_loader import get_random_images, show_image
 from constants import IMG_SIZE, CATEGORIES  # <- dodano
+from logger_utils import log, set_logger
 
-_log_callback = print  # Domyślna funkcja logująca
-
-def set_logger(logger_function):
-    global _log_callback
-    _log_callback = logger_function
-
-def log(msg):
-    _log_callback(str(msg))
 
 def classify_animal(image_path, model, categories=CATEGORIES, img_size=IMG_SIZE):
     img = cv2.imread(image_path, cv2.IMREAD_COLOR)

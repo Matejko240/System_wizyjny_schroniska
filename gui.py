@@ -1,25 +1,47 @@
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QPushButton, QFileDialog, QSpinBox, QCheckBox, QLineEdit, QTextEdit
 from PyQt6.QtGui import QPixmap, QImage
+from PyQt6.QtCore import QThread, pyqtSignal
 import sys
 import cv2
 from PIL import Image
 from pathlib import Path
-from classifier import classify_animal, classify_random_images, classify_all_images_in_folder, set_logger
+from classifier import classify_animal, classify_random_images, classify_all_images_in_folder
 from tensorflow.keras.models import load_model
 from model import load_or_train_model
+import matplotlib
+matplotlib.use('QtAgg')  # backend zgodny z PyQt
 import matplotlib.pyplot as plt
 from constants import MODEL_PATH, DEFAULT_EPOCHS, DEFAULT_SHOW_IMAGES, DEFAULT_NUM_IMAGES, CATEGORIES, IMG_SIZE, TEST_PATH, VAL_PATH, TRAIN_PATH
-# Wczytaj model
+import json
+from logger_utils import log, set_logger
 
-model = load_model(MODEL_PATH)
+class TrainingThread(QThread):
+    training_finished = pyqtSignal(object, object)
 
+    def __init__(self, model_path, dataset_path, categories, img_size, epochs):
+        super().__init__()
+        self.model_path = model_path
+        self.dataset_path = dataset_path
+        self.categories = categories
+        self.img_size = img_size
+        self.epochs = epochs
+
+    def run(self):
+        model, history = load_or_train_model(
+            self.model_path,
+            self.dataset_path,
+            self.categories,
+            self.img_size,
+            self.epochs
+        )
+        self.training_finished.emit(model, history)
 
 class ImageClassifierApp(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Klasyfikacja obrazów")
         self.setGeometry(100, 100, 600, 700)
-
+        self.model = load_model(MODEL_PATH)
         self.layout = QVBoxLayout()
 
         self.image_label = QLabel("Brak obrazu")
@@ -42,8 +64,6 @@ class ImageClassifierApp(QWidget):
         self.history_box.setMinimumHeight(200)  # Ustawienie większej wysokości przy starcie
         self.layout.addWidget(self.history_box)
 
-
-
         self.train_btn = QPushButton("Trenuj model")
         self.train_btn.clicked.connect(self.train_model)
         self.layout.addWidget(self.train_btn)
@@ -54,6 +74,11 @@ class ImageClassifierApp(QWidget):
         self.plot_btn.setEnabled(False)
         self.layout.addWidget(self.plot_btn)
 
+        self.plot_from_file_btn = QPushButton("📄 Pokaż historię z pliku")
+        self.plot_from_file_btn.clicked.connect(self.plot_training_curve_from_file)
+        self.layout.addWidget(self.plot_from_file_btn)
+
+        
         self.classify_random_btn = QPushButton("Klasyfikuj losowe obrazy")
         self.classify_random_btn.clicked.connect(self.classify_random_images)
         self.layout.addWidget(self.classify_random_btn)
@@ -112,19 +137,25 @@ class ImageClassifierApp(QWidget):
 
     def classify_image(self):
         if self.image_path:
-            classify_animal(self.image_path, model, CATEGORIES, IMG_SIZE)
+            classify_animal(self.image_path, self.model, CATEGORIES, IMG_SIZE)
 
     def train_model(self):
         epochs = self.epochs_input.value()
         model_path = Path(self.model_path_input.text())
-        global model
-        model, self.history = load_or_train_model(model_path, TRAIN_PATH, CATEGORIES, IMG_SIZE, epochs)
+        
+        self.training_thread = TrainingThread(model_path, TRAIN_PATH, CATEGORIES, IMG_SIZE, epochs)
+        self.training_thread.training_finished.connect(self.on_training_finished)
+        self.training_thread.start()
+    
+    def on_training_finished(self, model, history):
+        self.model = model
+        self.history = history
         self.plot_btn.setEnabled(self.history is not None)
 
     def classify_random_images(self):
         num_images = self.num_images_input.value()
         show_images = self.show_images_checkbox.isChecked()
-        results = classify_random_images(VAL_PATH, model, CATEGORIES, IMG_SIZE, num_images, DEFAULT_SHOW_IMAGES) or []
+        results = classify_random_images(VAL_PATH, self.model, CATEGORIES, IMG_SIZE, num_images, show_images) or []
         self.show_statistics(results)
 
     def show_statistics(self, results):
@@ -136,16 +167,13 @@ class ImageClassifierApp(QWidget):
 
     def classify_all_images(self):
         show_images = self.show_images_checkbox.isChecked()
-        classify_all_images_in_folder(TEST_PATH, model, CATEGORIES, IMG_SIZE, show_images) or []
+        classify_all_images_in_folder(TEST_PATH, self.model, CATEGORIES, IMG_SIZE, show_images) or []
 
-    def plot_training_curve(self):
-        if not self.history:
-            return
-
-        acc = self.history.history.get('accuracy', [])
-        val_acc = self.history.history.get('val_accuracy', [])
-        loss = self.history.history.get('loss', [])
-        val_loss = self.history.history.get('val_loss', [])
+    def draw_training_plot(self, history_data):
+        acc = history_data.get('accuracy', [])
+        val_acc = history_data.get('val_accuracy', [])
+        loss = history_data.get('loss', [])
+        val_loss = history_data.get('val_loss', [])
         epochs = range(1, len(acc) + 1)
 
         plt.figure(figsize=(10, 5))
@@ -167,4 +195,23 @@ class ImageClassifierApp(QWidget):
         plt.legend()
 
         plt.tight_layout()
-        plt.show()
+        plt.show(block=False)
+
+
+    def plot_training_curve(self):
+        if not self.history:
+            return
+        self.draw_training_plot(self.history.history)
+
+    def plot_training_curve_from_file(self):
+        model_path = Path(self.model_path_input.text())
+        history_path = model_path.with_suffix('.history.json')
+
+        if not history_path.exists():
+            self.append_to_history(f"❌ Plik historii {history_path} nie istnieje.")
+            return
+
+        with open(history_path, 'r', encoding='utf-8') as f:
+            history_data = json.load(f)
+
+        self.draw_training_plot(history_data)

@@ -2,18 +2,20 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers, Input
 from tensorflow.keras.models import load_model
+from tensorflow.keras.callbacks import Callback
+
 from dataset_loader import load_images, split_dataset
+import json
+from logger_utils import log, set_logger
 
-_log_callback = print  # Domyślna funkcja logująca
+class LoggingCallback(Callback):
+    def on_epoch_end(self, epoch, logs=None):
+        acc = logs.get("accuracy", 0)
+        val_acc = logs.get("val_accuracy", 0)
+        loss = logs.get("loss", 0)
+        val_loss = logs.get("val_loss", 0)
+        log(f"📊 Epoka {epoch + 1} zakończona — acc: {acc:.4f}, val_acc: {val_acc:.4f}, loss: {loss:.4f}, val_loss: {val_loss:.4f}")
 
-def set_logger(logger_function):
-    """Ustawia funkcję logującą komunikaty (np. do GUI)."""
-    global _log_callback
-    _log_callback = logger_function
-
-def log(msg):
-    """Loguje wiadomość za pomocą aktualnie ustawionej funkcji."""
-    _log_callback(str(msg))
 
 def create_model(img_size, num_classes):
     """Tworzy i zwraca ulepszony model CNN do klasyfikacji zwierząt."""
@@ -55,10 +57,16 @@ def load_or_train_model(model_path, dataset_path, categories, img_size=128, epoc
     history = model.fit(
         X_train, y_train,
         epochs=epochs,
-        validation_data=(X_test, y_test)
+        validation_data=(X_test, y_test),
+        callbacks=[LoggingCallback()]
     )
+
 
     model.save(model_path)
     log(f"✅ Model zapisany jako {model_path}")
+    history_path = model_path.with_suffix('.history.json')
+    with open(history_path, 'w', encoding='utf-8') as f:
+        json.dump(history.history, f, indent=4)
+    log(f"📝 Historia treningu zapisana do {history_path}")
 
     return model, history
