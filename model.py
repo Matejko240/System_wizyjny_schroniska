@@ -7,6 +7,7 @@ from tensorflow.keras.callbacks import Callback
 from dataset_loader import load_images, split_dataset
 import json
 from logger_utils import log, set_logger
+from constants import MODEL_PATH, DEFAULT_EPOCHS, DEFAULT_SHOW_IMAGES, DEFAULT_NUM_IMAGES, CATEGORIES, IMG_SIZE, TEST_PATH, VAL_PATH, TRAIN_PATH
 
 class LoggingCallback(Callback):
     def on_epoch_end(self, epoch, logs=None):
@@ -38,32 +39,40 @@ def create_model(img_size, num_classes):
     
     return model
 
-def load_or_train_model(model_path, dataset_path, categories, img_size=128, epochs=10):
-    """Ładuje model z pliku lub trenuje nowy, jeśli model nie istnieje.
-    Zwraca model oraz historię trenowania (jeśli dotyczy)."""
-
+def load_or_train_model(model_path, img_size=128, epochs=10,
+                        num_train_images=None, num_val_images=None):
     if model_path.exists():
         log("📂 Wczytuję istniejący model...")
         model = load_model(model_path)
         model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-        return model, None  # Brak historii, bo model już był
+        return model, None
 
-    log(f"🚀 Brak modelu, rozpoczynam trenowanie na {epochs} epokach...")
-    data, labels = load_images(dataset_path, categories, img_size)
-    X_train, X_test, y_train, y_test = split_dataset(data, labels)
+    log(f"🚀 Rozpoczynam trenowanie na {epochs} epokach...")
 
-    model = create_model(img_size, len(categories))
+    # Załaduj i przytnij zbiór treningowy
+    train_data, train_labels = load_images(TRAIN_PATH, CATEGORIES, img_size)
+    if num_train_images:
+        train_data = train_data[:num_train_images]
+        train_labels = train_labels[:num_train_images]
+
+    # Załaduj i przytnij zbiór walidacyjny
+    val_data, val_labels = load_images(VAL_PATH, CATEGORIES, img_size)
+    if num_val_images:
+        val_data = val_data[:num_val_images]
+        val_labels = val_labels[:num_val_images]
+
+    model = create_model(img_size, len(CATEGORIES))
 
     history = model.fit(
-        X_train, y_train,
+        train_data, train_labels,
         epochs=epochs,
-        validation_data=(X_test, y_test),
+        validation_data=(val_data, val_labels),
         callbacks=[LoggingCallback()]
     )
 
-
     model.save(model_path)
     log(f"✅ Model zapisany jako {model_path}")
+
     history_path = model_path.with_suffix('.history.json')
     with open(history_path, 'w', encoding='utf-8') as f:
         json.dump(history.history, f, indent=4)
