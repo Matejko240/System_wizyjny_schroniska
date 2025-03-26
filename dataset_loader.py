@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 import matplotlib.pyplot as plt
 import random
-from constants import IMG_SIZE, CATEGORIES, VAL_PATH
+from constants import *
 
 def load_images(dataset_path, categories=CATEGORIES, img_size=IMG_SIZE):
     data, labels = [], []

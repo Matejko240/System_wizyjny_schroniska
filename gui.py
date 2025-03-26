@@ -13,7 +13,7 @@ from model import load_or_train_model
 import matplotlib
 matplotlib.use('QtAgg')  # backend zgodny z PyQt
 import matplotlib.pyplot as plt
-from constants import MODEL_PATH, DEFAULT_EPOCHS, DEFAULT_SHOW_IMAGES, DEFAULT_NUM_IMAGES, CATEGORIES, IMG_SIZE, TEST_PATH, VAL_PATH, TRAIN_PATH
+from constants import *
 import json
 from logger_utils import log, set_logger
 
@@ -44,7 +44,11 @@ class ImageClassifierApp(QWidget):
         super().__init__()
         self.setWindowTitle("Klasyfikacja obrazów")
         self.setGeometry(100, 100, 600, 700)
-        self.model = load_model(MODEL_PATH)
+        if MODEL_PATH.exists():
+            self.model = load_model(MODEL_PATH)
+        else:
+            self.model, _ = load_or_train_model(MODEL_PATH)
+
         self.layout = QVBoxLayout()
 
         self.image_label = QLabel()
@@ -143,9 +147,6 @@ class ImageClassifierApp(QWidget):
         self.train_img_input.setRange(1, self.max_train)
         self.val_img_input.setRange(1, self.max_val)
 
-        self.train_img_input.setValue(min(100, self.max_train))
-        self.val_img_input.setValue(min(50, self.max_val))
-
         # Powiąż zmiany ze zmianą opisu %
         self.train_img_input.valueChanged.connect(self.update_train_percent)
         self.val_img_input.valueChanged.connect(self.update_val_percent)
@@ -200,7 +201,7 @@ class ImageClassifierApp(QWidget):
 
     def train_model(self):
         epochs = self.epochs_input.value()
-        model_path = Path(self.model_path_input.text())
+        model_path = MODELS_DIR / self.model_path_input.text()
         num_train = self.train_img_input.value()
         num_val = self.val_img_input.value()
 
@@ -266,7 +267,7 @@ class ImageClassifierApp(QWidget):
         self.draw_training_plot(self.history.history)
 
     def plot_training_curve_from_file(self):
-        model_path = Path(self.model_path_input.text())
+        model_path = MODELS_DIR / self.model_path_input.text()
         history_path = model_path.with_suffix('.history.json')
 
         if not history_path.exists():
@@ -274,9 +275,11 @@ class ImageClassifierApp(QWidget):
             return
 
         with open(history_path, 'r', encoding='utf-8') as f:
-            history_data = json.load(f)
+            full_data = json.load(f)
 
+        history_data = full_data["history"]
         self.draw_training_plot(history_data)
+
         
     def count_images_in_folder(self, folder, categories):
         total = 0
