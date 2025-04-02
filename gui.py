@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 from constants import *
 import json
 from logger_utils import log, set_logger
-
+from plot_utils import *
 class TrainingThread(QThread):
     training_finished = pyqtSignal(object, object)
 
@@ -44,12 +44,32 @@ class ImageClassifierApp(QWidget):
         super().__init__()
         self.setWindowTitle("Klasyfikacja obrazów")
         self.setGeometry(100, 100, 600, 700)
+        
+        main_layout = QHBoxLayout()
+        self.setLayout(main_layout)
+
+        self.left_layout = QVBoxLayout()
+        main_layout.addLayout(self.left_layout, 1)
+
+        self.right_layout = QVBoxLayout()
+
+        main_layout.addLayout(self.right_layout, 2)
+
+        self.layout = self.left_layout  # żeby nie trzeba było zmieniać dalej
+
+        
+        self.training_plot_label = QLabel()
+        self.confusion_plot_label = QLabel()
+
+        self.right_layout.addWidget(self.training_plot_label)
+        self.right_layout.addWidget(self.confusion_plot_label)
+
+        
         if MODEL_PATH.exists():
             self.model = load_model(MODEL_PATH)
         else:
             self.model, _ = load_or_train_model(MODEL_PATH)
 
-        self.layout = QVBoxLayout()
 
         self.image_label = QLabel()
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -161,7 +181,7 @@ class ImageClassifierApp(QWidget):
         self.show_images_checkbox.setChecked(DEFAULT_SHOW_IMAGES)
         self.layout.addWidget(self.show_images_checkbox)
         
-        self.setLayout(self.layout)
+
         self.image_path = None
 
         # Ustawienie funkcji logującej
@@ -276,9 +296,35 @@ class ImageClassifierApp(QWidget):
 
         with open(history_path, 'r', encoding='utf-8') as f:
             full_data = json.load(f)
+            
+        meta = full_data.get("meta", {})
+        test = full_data.get("test_results", {}).copy()
+        test.pop("confusion_matrix", None)  # usuwamy confusion_matrix
 
-        history_data = full_data["history"]
-        self.draw_training_plot(history_data)
+        self.append_to_history("📌 Dane meta:")
+        for k, v in meta.items():
+            self.append_to_history(f"   {k}: {v}")
+
+        self.append_to_history("📊 Wyniki testu:")
+        for k, v in test.items():
+            self.append_to_history(f"   {k}: {v}")
+            
+        early = full_data.get("early_stopping")
+        if early:
+            self.append_to_history("🛑 Early stopping:")
+            for k, v in early.items():
+                self.append_to_history(f"   {k}: {v}")
+
+        
+        history_data = full_data.get("history", {})
+        confusion = full_data.get("test_results", {}).get("confusion_matrix", {})
+
+        training_img = get_training_plot_image(history_data)
+        confusion_img = get_confusion_matrix_image(confusion, CATEGORIES)
+
+        self.training_plot_label.setPixmap(QPixmap.fromImage(self.pil2pixmap(training_img)))
+        self.confusion_plot_label.setPixmap(QPixmap.fromImage(self.pil2pixmap(confusion_img)))
+
 
         
     def count_images_in_folder(self, folder, categories):
@@ -299,4 +345,8 @@ class ImageClassifierApp(QWidget):
         percent = (val / self.max_val) * 100 if self.max_val else 0
         self.val_img_percent.setText(f"{percent:.1f}% z dostępnych")
     
-    
+    def pil2pixmap(self, im):
+        im = im.convert("RGB")
+        data = im.tobytes("raw", "RGB")
+        qim = QImage(data, im.size[0], im.size[1], QImage.Format.Format_RGB888)
+        return qim

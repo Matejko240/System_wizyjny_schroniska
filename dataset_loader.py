@@ -6,7 +6,9 @@ from sklearn.model_selection import train_test_split
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 import matplotlib.pyplot as plt
 import random
+from collections import defaultdict
 from constants import *
+from logger_utils import *
 
 def load_images(dataset_path, categories=CATEGORIES, img_size=IMG_SIZE):
     data, labels = [], []
@@ -68,3 +70,100 @@ def show_image(image_path):
     plt.show(block=False)
     plt.pause(5)
     plt.close()
+
+def get_balanced_subset_and_remainder(base_path, used_images, categories=CATEGORIES, img_size=IMG_SIZE):
+    used, unused = [], []
+
+    total_available = 0
+    per_category_files = {}
+
+    # Licz całkowitą liczbę zdjęć w folderze (per kategoria)
+    for category in categories:
+        cat_path = base_path / category
+        files = [f for f in os.listdir(cat_path) if f.lower().endswith(('.jpg', '.png', '.jpeg'))]
+        per_category_files[category] = files
+        total_available += len(files)
+
+    reserve_total = total_available - used_images
+    reserve_per_cat = reserve_total // len(categories)
+
+    for category in categories:
+        files = per_category_files[category]
+        random.shuffle(files)
+
+        if len(files) < reserve_per_cat:
+            log(f"⚠️ Za mało zdjęć w {category}: {len(files)} < {reserve_per_cat}")
+            reserved_for_test = len(files)
+        else:
+            reserved_for_test = reserve_per_cat
+
+        test_imgs = files[:reserved_for_test]
+        train_imgs = files[reserved_for_test:]
+
+        cat_path = base_path / category
+        used += [(cat_path / f, category) for f in train_imgs]
+        unused += [(cat_path / f, category) for f in test_imgs]
+
+        log(f"📂 {category}: razem {len(files)}, test: {len(test_imgs)}, tren.: {len(train_imgs)}")
+
+    return used, unused
+
+
+
+
+def load_from_paths(image_paths, categories=CATEGORIES, img_size=IMG_SIZE):
+    data, labels = [], []
+    for path, category in image_paths:
+        img = cv2.imread(str(path), cv2.IMREAD_COLOR)
+        if img is None:
+            continue
+        img = cv2.resize(img, (img_size, img_size))
+        data.append(img)
+        labels.append(categories.index(category))
+    return np.array(data) / 255.0, np.array(labels)
+
+
+def evaluate_model_on_paths(model, image_paths, categories=CATEGORIES, img_size=IMG_SIZE):
+    if not image_paths:
+        log("⚠️ Brak danych testowych do oceny.")
+        return {}
+
+    data, labels = load_from_paths(image_paths, categories, img_size)
+    predictions = model.predict(data)
+    predicted_labels = np.argmax(predictions, axis=1)
+
+    correct = np.sum(predicted_labels == labels)
+    total = len(labels)
+    accuracy = (correct / total) * 100 if total > 0 else 0.0
+
+    # Tworzenie confusion matrix jako słownik
+    confusion = defaultdict(lambda: defaultdict(int))
+    for true, pred in zip(labels, predicted_labels):
+        true_cat = categories[true]
+        pred_cat = categories[pred]
+        confusion[true_cat][pred_cat] += 1
+
+    log(f"\n📊 Wyniki testu na {total} obrazach:")
+    log(f"✔️ Trafne: {correct}")
+    log(f"❌ Nietrafione: {total - correct}")
+    log(f"🎯 Skuteczność: {accuracy:.2f}%\n")
+
+    for true_cat in categories:
+        for pred_cat in categories:
+            count = confusion[true_cat][pred_cat]
+            if count > 0:
+                msg = f"📌 {count}× '{true_cat}' rozpoznano jako '{pred_cat}'"
+                if true_cat != pred_cat:
+                    msg += " ❌"
+                else:
+                    msg += " ✅"
+                log(msg)
+
+    # Zwracamy dane testowe do pliku .history.json
+    return {
+        "total": total,
+        "correct": int(correct),
+        "incorrect": int(total - correct),
+        "accuracy": accuracy,
+        "confusion_matrix": {k: dict(v) for k, v in confusion.items()}
+    }
