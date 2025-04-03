@@ -13,5 +13,14 @@ if __name__ == "__main__":
     window.show()
     sys.exit(app.exec())
 
-
-
+# Czulosc, swoistosc,specyficznosc cos takiego znalezc miary ktore mowia o bledach pierwszego i drugiego rodzaju, poprawic early stop okna z roznica 1 np. RAK
+# to bedzie koniec jakosci modelu. param ogolny, reszta parametrow dla konkretnych klas. macierz konfuzji,czas treningu
+# seria eksperymentow. zmiana bazy danych teraz mamy te 13000 ale mamy sprawdzic dla mniejszej. zachowac proporcje dla val i train. jak jakosc zdjec wplywa. resize zdjec
+# dobranie optymalnych parametrow zostawic ladna baze danych zmieniac architekture modelu zmnijeszyc i zwiekszyc lliczbe warstw
+# zapisywac wszystkie eksperymenty np w excel
+# dokladnie te same zdjecia dla eksperymentow!!!!
+# robic po kilka testow zamiast jednego
+# 1. dodac parametry 2. dla tych samych danych przeprowadzic eksperymenty 3. zrobic kilka testow dla jednego modleu
+# acurracy średnia mediana i odchylenie standardowe aby okreslic stabilnosc modelu.
+# early stop ma byc zmiana a nie nierownoscia np 0.01, 0.001
+# nakladac kilka wykresow na siebie. wartosc srednia confusion
