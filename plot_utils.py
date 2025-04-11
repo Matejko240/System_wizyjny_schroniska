@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from io import BytesIO
 from PIL import Image
+from statistics import mean, median, stdev
 
 def plot_confusion_matrix(confusion_dict, categories):
     """
@@ -122,3 +123,28 @@ def get_training_plot_image(history_data):
     plt.close(fig)
     buf.seek(0)
     return Image.open(buf)
+
+def plot_accuracy_statistics(values):
+
+
+    runs = list(range(1, len(values) + 1))
+
+    plt.figure(figsize=(8, 5))
+    plt.plot(runs, values, marker='o', label='Accuracy (%)')
+    plt.axhline(mean(values), color='green', linestyle='--', label=f'Średnia: {mean(values):.2f}%')
+    plt.axhline(median(values), color='orange', linestyle='-.', label=f'Mediana: {median(values):.2f}%')
+    if len(values) > 1:
+        std = stdev(values)
+        plt.fill_between(runs, [mean(values)-std]*len(runs), [mean(values)+std]*len(runs),
+                         color='gray', alpha=0.2, label='Odchylenie std')
+
+    plt.title("Stabilność modelu — Accuracy w kolejnych testach")
+    plt.xlabel("Test")
+    plt.ylabel("Accuracy (%)")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show(block=False)
+    plt.pause(0.1)  # krótka pauza pozwala GUI dorysować wykres
+
+

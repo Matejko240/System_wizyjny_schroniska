@@ -7,6 +7,7 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 import matplotlib.pyplot as plt
 import random
 from collections import defaultdict
+import json
 from constants import *
 from logger_utils import *
 
@@ -159,11 +160,74 @@ def evaluate_model_on_paths(model, image_paths, categories=CATEGORIES, img_size=
                     msg += " ✅"
                 log(msg)
 
+
+    # Oblicz metryki jakości
+    metrics_per_class = {}
+
+    for idx, cls in enumerate(categories):
+        TP = confusion[cls].get(cls, 0)
+        FN = sum(confusion[cls][c] for c in categories if c != cls)
+        FP = sum(confusion[c][cls] for c in categories if c != cls)
+        TN = sum(confusion[c1][c2] for c1 in categories for c2 in categories
+                if c1 != cls and c2 != cls)
+
+        recall = TP / (TP + FN) if (TP + FN) > 0 else 0
+        specificity = TN / (TN + FP) if (TN + FP) > 0 else 0
+        precision = TP / (TP + FP) if (TP + FP) > 0 else 0
+        f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+
+        type1_error = FP / (FP + TN) if (FP + TN) > 0 else 0
+        type2_error = FN / (FN + TP) if (FN + TP) > 0 else 0
+
+        metrics_per_class[cls] = {
+            "recall": round(recall, 4),
+            "specificity": round(specificity, 4),
+            "precision": round(precision, 4),
+            "f1_score": round(f1, 4),
+            "type1_error": round(type1_error, 4),
+            "type2_error": round(type2_error, 4),
+            "TP": TP,
+            "FP": FP,
+            "FN": FN,
+            "TN": TN
+        }
+    log("📐 Metryki jakości dla każdej klasy:")
+    for cls, m in metrics_per_class.items():
+        log(f"  🐾 Klasa '{cls}':")
+        for k, v in m.items():
+            log(f"     {k}: {v}")
+        
     # Zwracamy dane testowe do pliku .history.json
     return {
         "total": total,
         "correct": int(correct),
         "incorrect": int(total - correct),
         "accuracy": accuracy,
-        "confusion_matrix": {k: dict(v) for k, v in confusion.items()}
+        "confusion_matrix": {k: dict(v) for k, v in confusion.items()},
+        "metrics_per_class": metrics_per_class
+    }
+def save_dataset_paths(train_paths, val_paths, test_paths, output_path):
+    def serialize(paths):
+        return [(str(p), c) for p, c in paths]
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump({
+            "train": serialize(train_paths),
+            "val": serialize(val_paths),
+            "test": serialize(test_paths)
+        }, f, indent=2)
+    log(f"💾 Zapisano ścieżki zestawu danych do {output_path}")
+
+def load_dataset_paths(dataset_json_path):
+    with open(dataset_json_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    def deserialize(pairs):
+        return [(Path(p), c) for p, c in pairs]
+
+    log(f"📂 Wczytuję ścieżki zestawu danych z {dataset_json_path}")
+    return {
+        "train": deserialize(data["train"]),
+        "val": deserialize(data["val"]),
+        "test": deserialize(data["test"]),
     }

@@ -17,24 +17,31 @@ from constants import *
 import json
 from logger_utils import log, set_logger
 from plot_utils import *
+from model import repeat_evaluation
+from plot_utils import plot_accuracy_statistics
+from statistics import mean, median, stdev
+from model import repeat_training
+from plot_utils import plot_accuracy_statistics
+
 class TrainingThread(QThread):
     training_finished = pyqtSignal(object, object)
 
-    def __init__(self, model_path, img_size, epochs, num_train, num_val):
+    def __init__(self, model_path, img_size, epochs, num_train, num_val, dataset_path):
         super().__init__()
         self.model_path = model_path
         self.img_size = img_size
         self.epochs = epochs
         self.num_train = num_train
         self.num_val = num_val
-
+        self.dataset_path = dataset_path
     def run(self):
         model, history = load_or_train_model(
             self.model_path,
             self.img_size,
             self.epochs,
             self.num_train,
-            self.num_val
+            self.num_val,
+            self.dataset_path
         )
         self.training_finished.emit(model, history)
 
@@ -90,7 +97,7 @@ class ImageClassifierApp(QWidget):
         self.layout.addWidget(self.history_label)
         self.history_box = QTextEdit()
         self.history_box.setReadOnly(True)
-        self.history_box.setMinimumHeight(200)  # Ustawienie większej wysokości przy starcie
+        self.history_box.setMinimumHeight(150)  # Ustawienie większej wysokości przy starcie
         self.layout.addWidget(self.history_box)
 
         self.train_btn = QPushButton("Trenuj model")
@@ -107,6 +114,13 @@ class ImageClassifierApp(QWidget):
         self.plot_from_file_btn.clicked.connect(self.plot_training_curve_from_file)
         self.layout.addWidget(self.plot_from_file_btn)
 
+        self.stability_btn = QPushButton("🔁 Testuj stabilność modelu")
+        self.stability_btn.clicked.connect(self.test_model_stability)
+        self.layout.addWidget(self.stability_btn)
+
+        self.repeat_train_btn = QPushButton("🔁 Powtarzaj trening modelu")
+        self.repeat_train_btn.clicked.connect(self.run_repeat_training)
+        self.layout.addWidget(self.repeat_train_btn)
         
         self.classify_random_btn = QPushButton("Klasyfikuj losowe obrazy")
         self.classify_random_btn.clicked.connect(self.classify_random_images)
@@ -224,8 +238,8 @@ class ImageClassifierApp(QWidget):
         model_path = MODELS_DIR / self.model_path_input.text()
         num_train = self.train_img_input.value()
         num_val = self.val_img_input.value()
-
-        self.training_thread = TrainingThread(model_path, IMG_SIZE, epochs, num_train, num_val)
+        dataset_path = model_path.with_suffix(".dataset.json")
+        self.training_thread = TrainingThread(model_path, IMG_SIZE, epochs, num_train, num_val, dataset_path)
         self.training_thread.training_finished.connect(self.on_training_finished)
         self.training_thread.start()
 
@@ -235,11 +249,28 @@ class ImageClassifierApp(QWidget):
         self.history = history
         self.plot_btn.setEnabled(self.history is not None)
 
+
     def classify_random_images(self):
         num_images = self.num_images_input.value()
         show_images = self.show_images_checkbox.isChecked()
         results = classify_random_images(VAL_PATH, self.model, CATEGORIES, IMG_SIZE, num_images, show_images) or []
         self.show_statistics(results)
+
+    
+    def run_repeat_training(self):
+        model_path = MODELS_DIR / self.model_path_input.text()
+        dataset_path = model_path.with_suffix(".dataset.json")
+
+        self.append_to_history("⏳ Seria treningów modelu na tych samych danych...")
+        acc_values = repeat_training(model_path, dataset_path, IMG_SIZE, runs=RUNS, epochs=self.epochs_input.value())
+
+        if acc_values:
+            self.append_to_history("\n📉 Stabilność po trenowaniu:")
+            self.append_to_history(f"   Średnia: {mean(acc_values):.2f}%")
+            self.append_to_history(f"   Mediana: {median(acc_values):.2f}%")
+            if len(acc_values) > 1:
+                self.append_to_history(f"   Odchylenie standardowe: {stdev(acc_values):.2f}")
+            plot_accuracy_statistics(acc_values)
 
     def show_statistics(self, results):
         total = len(results)
@@ -309,6 +340,14 @@ class ImageClassifierApp(QWidget):
         for k, v in test.items():
             self.append_to_history(f"   {k}: {v}")
             
+        metrics = full_data.get("test_results", {}).get("metrics_per_class", {})
+        if metrics:
+            self.append_to_history("📐 Metryki jakości dla każdej klasy:")
+            for cls, m in metrics.items():
+                self.append_to_history(f"  🐾 Klasa '{cls}':")
+                for k, v in m.items():
+                    self.append_to_history(f"     {k}: {v}")
+
         early = full_data.get("early_stopping")
         if early:
             self.append_to_history("🛑 Early stopping:")
@@ -325,6 +364,19 @@ class ImageClassifierApp(QWidget):
         self.training_plot_label.setPixmap(QPixmap.fromImage(self.pil2pixmap(training_img)))
         self.confusion_plot_label.setPixmap(QPixmap.fromImage(self.pil2pixmap(confusion_img)))
 
+
+    def test_model_stability(self):
+        model_path = MODELS_DIR / self.model_path_input.text()
+        dataset_path = model_path.with_suffix(".dataset.json")
+
+        acc_values = repeat_evaluation(model_path, dataset_path, IMG_SIZE, runs=5)
+        if acc_values:
+            self.append_to_history("\n📉 Stabilność modelu:")
+            self.append_to_history(f"   Średnia: {mean(acc_values):.2f}%")
+            self.append_to_history(f"   Mediana: {median(acc_values):.2f}%")
+            if len(acc_values) > 1:
+                self.append_to_history(f"   Odchylenie standardowe: {stdev(acc_values):.2f}")
+            plot_accuracy_statistics(acc_values)
 
         
     def count_images_in_folder(self, folder, categories):

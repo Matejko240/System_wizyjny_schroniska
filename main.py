@@ -24,3 +24,13 @@ if __name__ == "__main__":
 # acurracy średnia mediana i odchylenie standardowe aby okreslic stabilnosc modelu.
 # early stop ma byc zmiana a nie nierownoscia np 0.01, 0.001
 # nakladac kilka wykresow na siebie. wartosc srednia confusion
+
+# 1. Miary błędów pierwszego i drugiego rodzaju (ZROBIONE)
+# 2. Poprawiony Early Stopping (ZROBIONE)
+# 3. Seria eksperymentów
+# 4. Zachowanie tych samych zdjęć (ZROBIONE(jedynie trzeba to polaczyc z seria eksperymentow i ewentualnie jakies wykorzystanie w gui))
+# 5. Wielokrotne testy dla jednego modelu
+# 6. Nakładanie wykresów i średnia Confusion Matrix
+# 7. Resize i jakość zdjęć
+# 8. Eksperymenty z architekturą
+# od 5 maja 8 rano
