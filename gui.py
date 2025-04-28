@@ -114,9 +114,6 @@ class ImageClassifierApp(QWidget):
         self.plot_from_file_btn.clicked.connect(self.plot_training_curve_from_file)
         self.layout.addWidget(self.plot_from_file_btn)
 
-        self.stability_btn = QPushButton("🔁 Testuj stabilność modelu")
-        self.stability_btn.clicked.connect(self.test_model_stability)
-        self.layout.addWidget(self.stability_btn)
 
         self.repeat_train_btn = QPushButton("🔁 Powtarzaj trening modelu")
         self.repeat_train_btn.clicked.connect(self.run_repeat_training)
@@ -147,7 +144,7 @@ class ImageClassifierApp(QWidget):
         train_box = QHBoxLayout()
         self.train_img_input = QSpinBox()
         self.train_img_input.setRange(1, self.max_train)
-        self.train_img_input.setValue(min(14630, self.max_train))
+        self.train_img_input.setValue(min(13000, self.max_train))
         train_box.addWidget(self.train_img_input)
         self.train_img_percent = QLabel()
         train_box.addWidget(self.train_img_percent)
@@ -258,19 +255,37 @@ class ImageClassifierApp(QWidget):
 
     
     def run_repeat_training(self):
-        model_path = MODELS_DIR / self.model_path_input.text()
-        dataset_path = model_path.with_suffix(".dataset.json")
+        model_path_base = MODELS_DIR / self.model_path_input.text()
+        dataset_path = model_path_base.with_suffix(".dataset.json")
 
-        self.append_to_history("⏳ Seria treningów modelu na tych samych danych...")
-        acc_values = repeat_training(model_path, dataset_path, IMG_SIZE, runs=RUNS, epochs=self.epochs_input.value())
+        batch_sizes = [8, 16, 64, 128]
 
-        if acc_values:
-            self.append_to_history("\n📉 Stabilność po trenowaniu:")
-            self.append_to_history(f"   Średnia: {mean(acc_values):.2f}%")
-            self.append_to_history(f"   Mediana: {median(acc_values):.2f}%")
-            if len(acc_values) > 1:
-                self.append_to_history(f"   Odchylenie standardowe: {stdev(acc_values):.2f}")
-            plot_accuracy_statistics(acc_values)
+        for batch in batch_sizes:
+            self.append_to_history(f"\n🚀 Batch size: {batch}")
+            model_path = model_path_base.parent / f"batch{batch}.keras"
+            acc_values = repeat_training(
+                model_path_base=model_path,
+                dataset_json_path=dataset_path,
+                img_size=IMG_SIZE,
+                runs=RUNS,
+                epochs=self.epochs_input.value(),
+                batch_size=batch,          # <-- tu dynamicznie zmieniamy!
+                optimizer_name="adam",     # możesz zrobić osobno później
+                activation_function="relu",
+                conv_layers=3,
+                add_noise=False
+            )
+
+
+            if acc_values:
+                self.append_to_history("📉 Stabilność po trenowaniu:")
+                self.append_to_history(f"   Średnia: {mean(acc_values):.2f}%")
+                self.append_to_history(f"   Mediana: {median(acc_values):.2f}%")
+                if len(acc_values) > 1:
+                    self.append_to_history(f"   Odchylenie standardowe: {stdev(acc_values):.2f}")
+                plot_accuracy_statistics(acc_values)
+        self.append_to_history("\n✅ Zakończono wszystkie eksperymenty.")
+
 
     def show_statistics(self, results):
         total = len(results)

@@ -18,4 +18,5 @@ PATIENCE = 5 #Na podstawie ilu epok wstecz działa early stop
 DEFAULT_VAL_IMAGES = 1500
 DEFAULT_TRAIN_IMAGES = 13000
 MIN_DELTA = 0.01 #zmiana pogorszenia się walidacji aby zadziałał early stop
-RUNS = 5 # ilość powtórzeń trenowania modelu
+RUNS = 20 # ilość powtórzeń trenowania modelu
+BATCH_SIZE = 32

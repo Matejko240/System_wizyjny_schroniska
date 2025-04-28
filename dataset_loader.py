@@ -11,7 +11,7 @@ import json
 from constants import *
 from logger_utils import *
 
-def load_images(dataset_path, categories=CATEGORIES, img_size=IMG_SIZE):
+def load_images(dataset_path, categories=CATEGORIES, img_size=IMG_SIZE, add_noise=False):
     data, labels = [], []
     for category in categories:
         path = dataset_path / category
@@ -28,15 +28,15 @@ def load_images(dataset_path, categories=CATEGORIES, img_size=IMG_SIZE):
                 if img is None:
                     continue
                 img = cv2.resize(img, (img_size, img_size))
+                img = np.array(img) / 255.0  # normalizacja obrazu
+                if add_noise:
+                    img = add_gaussian_noise(img)  # dodanie szumu
                 data.append(img)
                 labels.append(label)
             except Exception as e:
                 print(f"Błąd przy wczytywaniu obrazu {img_path}: {e}")
+    return np.array(data), np.array(labels)
 
-    if len(data) == 0:
-        raise ValueError("Nie załadowano żadnych obrazów!")
-
-    return np.array(data) / 255.0, np.array(labels)
 
 def split_dataset(data, labels, test_size=0.2):
     return train_test_split(data, labels, test_size=test_size, random_state=42)
@@ -231,3 +231,9 @@ def load_dataset_paths(dataset_json_path):
         "val": deserialize(data["val"]),
         "test": deserialize(data["test"]),
     }
+
+def add_gaussian_noise(img, mean=0, std=0.1):
+    row, col, ch = img.shape
+    gauss = np.random.normal(mean, std, (row, col, ch))
+    noisy = np.clip(img + gauss, 0, 1)  # zapewnia, że wartości pixel nie wyjdą poza zakres [0, 1]
+    return noisy

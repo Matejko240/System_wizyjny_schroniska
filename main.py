@@ -13,24 +13,33 @@ if __name__ == "__main__":
     window.show()
     sys.exit(app.exec())
 
-# Czulosc, swoistosc,specyficznosc cos takiego znalezc miary ktore mowia o bledach pierwszego i drugiego rodzaju, poprawic early stop okna z roznica 1 np. RAK
-# to bedzie koniec jakosci modelu. param ogolny, reszta parametrow dla konkretnych klas. macierz konfuzji,czas treningu
-# seria eksperymentow. zmiana bazy danych teraz mamy te 13000 ale mamy sprawdzic dla mniejszej. zachowac proporcje dla val i train. jak jakosc zdjec wplywa. resize zdjec
-# dobranie optymalnych parametrow zostawic ladna baze danych zmieniac architekture modelu zmnijeszyc i zwiekszyc lliczbe warstw
-# zapisywac wszystkie eksperymenty np w excel
-# dokladnie te same zdjecia dla eksperymentow!!!!
-# robic po kilka testow zamiast jednego
-# 1. dodac parametry 2. dla tych samych danych przeprowadzic eksperymenty 3. zrobic kilka testow dla jednego modleu
-# acurracy średnia mediana i odchylenie standardowe aby okreslic stabilnosc modelu.
-# early stop ma byc zmiana a nie nierownoscia np 0.01, 0.001
-# nakladac kilka wykresow na siebie. wartosc srednia confusion
 
-# 1. Miary błędów pierwszego i drugiego rodzaju (ZROBIONE)
-# 2. Poprawiony Early Stopping (ZROBIONE)
-# 3. Seria eksperymentów
-# 4. Zachowanie tych samych zdjęć (ZROBIONE(jedynie trzeba to polaczyc z seria eksperymentow i ewentualnie jakies wykorzystanie w gui))
-# 5. Wielokrotne testy dla jednego modelu
-# 6. Nakładanie wykresów i średnia Confusion Matrix
-# 7. Resize i jakość zdjęć
-# 8. Eksperymenty z architekturą
-# od 5 maja 8 rano
+"""
+Poprawić opiski w tabeli ze wzorami
+
+10 runów accuracy + 5 z poprzedniego
+
+Teraz należałoby już modyfikować model:
+Na pewno resize zdjęć, 
+Czy pogorszenie zdjęć np. 4 krotnie (czyli zmniejszenie rozdzielczości 2x w każdym) pogorszy
+śledzić czas obliczeń (do early stopa)
+3 różne rozdzielczości(2x w x i y; oraz jeszcze raz 2x w x oraz y)
+Można też spróbować wrzucając szum(np modyfikacja róznych pixeli)(zazwyczaj robi się szub gaussowski)
+Testujemy 3 różne rozdzielczości i też możemy 3 różne zaszumienia
+Możemy spróbować pojasnić lub pociemnić zdjęcie
+Chcemy wsystkie dobre zastąpić tymi poprawionymi. Nie robimy augmentacji
+
+Można zmieniać głębokość (ilość warstw, zobaczyć co się stanie gdy dodamy jedną lub usuniemy jeszcze jedną),
+Można zmienić funkcję aktywacji,
+optimizery ( zmienić adama na 2 inne ) - wybrać różne, nie 3 samochody szybkie sportowe
+funkcja loss
+batch size
+
+na razie tyle
+
+gdybyśmy chcieli znaleźć optymalny punkt:
+jaki powinnismy ustwaić batch size? jak mamy 32 to bierzemy 8, 16, 64, 128 dajemy na wykres i sprawdzamy czy jest pattern
+potem sprwadzamy w mniejszym przedziale, nie trzeba bardzo głęboko wchodzić
+
+testujemy zmianę tylko jednego parametru naraz, sprawdzamy co na co wpływa
+"""

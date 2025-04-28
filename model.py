@@ -3,6 +3,10 @@ from tensorflow import keras
 from tensorflow.keras import layers, Input
 from tensorflow.keras.models import load_model
 from tensorflow.keras.callbacks import Callback
+# tf.config.run_functions_eagerly(True)
+# tf.data.experimental.enable_debug_mode()
+
+import numpy as np
 import time
 import json
 from statistics import mean, median, stdev
@@ -10,7 +14,8 @@ from dataset_loader import load_images, split_dataset, load_dataset_paths, evalu
 from logger_utils import log, set_logger
 from constants import *
 from dataset_loader import get_balanced_subset_and_remainder, load_from_paths, evaluate_model_on_paths, load_dataset_paths, save_dataset_paths
-
+from experiment_logger import log_experiment
+from dataset_loader import add_gaussian_noise
 class LoggingCallback(Callback):
     def on_epoch_end(self, epoch=DEFAULT_EPOCHS, logs=None):
         acc = logs.get("accuracy", 0)
@@ -60,30 +65,30 @@ class CustomEarlyStopping(Callback):
 
 
 
-def create_model(img_size=IMG_SIZE, num_classes=len(CATEGORIES)):
-    """Tworzy i zwraca ulepszony model CNN do klasyfikacji zwierząt."""
-    model = keras.Sequential([
-        Input(shape=(img_size, img_size, 3)),
-        layers.Conv2D(32, (3,3), activation='relu'),
-        layers.MaxPooling2D(2,2),
-        layers.Conv2D(64, (3,3), activation='relu'),
-        layers.MaxPooling2D(2,2),
-        layers.Conv2D(128, (3,3), activation='relu'),
-        layers.MaxPooling2D(2,2),
-        layers.Flatten(),
-        layers.Dense(128, activation='relu'),
-        layers.Dense(num_classes, activation='softmax')
-    ])
+def create_model(img_size=IMG_SIZE, num_classes=len(CATEGORIES), num_conv_layers=3, activation_function='relu', optimizer='adam'):
+    model = keras.Sequential([Input(shape=(img_size, img_size, 3))])
 
-    model.compile(optimizer='adam', 
+    filters = 32
+    for i in range(num_conv_layers):
+        model.add(layers.Conv2D(filters, (3, 3), activation=activation_function))
+        model.add(layers.MaxPooling2D(2, 2))
+        filters *= 2
+
+    model.add(layers.Flatten())
+    model.add(layers.Dense(128, activation=activation_function))
+    model.add(layers.Dense(num_classes, activation='softmax'))
+
+    model.compile(optimizer=optimizer, 
                   loss='sparse_categorical_crossentropy', 
                   metrics=['accuracy'])
     
     return model
 
 
+
+
 def load_or_train_model(model_path=MODEL_PATH, img_size=IMG_SIZE, epochs=DEFAULT_EPOCHS,
-                        num_train_images=DEFAULT_TRAIN_IMAGES, num_val_images=DEFAULT_VAL_IMAGES,  dataset_json_path=DATASET_JSON_PATH):
+                        num_train_images=DEFAULT_TRAIN_IMAGES, num_val_images=DEFAULT_VAL_IMAGES,  dataset_json_path=DATASET_JSON_PATH, batch_size=BATCH_SIZE):
 
     if model_path.exists():
         log("📂 Wczytuję istniejący model...")
@@ -121,6 +126,7 @@ def load_or_train_model(model_path=MODEL_PATH, img_size=IMG_SIZE, epochs=DEFAULT
         train_data, train_labels,
         epochs=epochs,
         validation_data=(val_data, val_labels),
+        batch_size=batch_size,
         callbacks=[LoggingCallback(), early_stop_cb]
     )
     end_time = time.time()
@@ -184,42 +190,182 @@ def repeat_evaluation(model_path, dataset_json_path, img_size=IMG_SIZE, runs=RUN
         log(f"Odchylenie standardowe: {stdev(acc_list):.2f}")
     return acc_list
 
-def repeat_training(model_path_base, dataset_json_path, img_size=IMG_SIZE, runs=RUNS, epochs=DEFAULT_EPOCHS):
+def repeat_training(
+    model_path_base,
+    dataset_json_path,
+    img_size=IMG_SIZE,
+    runs=RUNS,
+    epochs=DEFAULT_EPOCHS,
+    batch_size=32,
+    optimizer_name="adam",
+    activation_function="relu",
+    conv_layers=3,
+    add_noise=False
+):
+    from experiment_logger import log_experiment
     acc_list = []
+    training_times = []
+    confusions = []
+    metrics_list = []
 
     for i in range(runs):
         log(f"\n🔁 Trenowanie modelu {i + 1} z {runs}...")
 
         current_model_path = model_path_base.with_stem(f"{model_path_base.stem}_run{i+1}")
+        start_time = time.time()
 
-        model, history = load_or_train_model(
-            model_path=current_model_path,
-            img_size=img_size,
+        # Przygotowanie danych
+        if dataset_json_path and Path(dataset_json_path).exists():
+            sets = load_dataset_paths(dataset_json_path)
+            train_paths = sets["train"][:DEFAULT_TRAIN_IMAGES]
+            val_paths = sets["val"][:DEFAULT_VAL_IMAGES]
+            test_paths = sets["test"]
+        else:
+            train_paths, train_unused = get_balanced_subset_and_remainder(TRAIN_PATH, DEFAULT_TRAIN_IMAGES)
+            val_paths, val_unused = get_balanced_subset_and_remainder(VAL_PATH, DEFAULT_VAL_IMAGES)
+            test_paths = train_unused + val_unused
+            if dataset_json_path:
+                save_dataset_paths(train_paths, val_paths, test_paths, dataset_json_path)
+
+        train_data, train_labels = load_from_paths(train_paths, CATEGORIES, img_size)
+        val_data, val_labels = load_from_paths(val_paths, CATEGORIES, img_size)
+
+        train_data = np.array(train_data)
+        train_labels = np.array(train_labels)
+        val_data = np.array(val_data)
+        val_labels = np.array(val_labels)
+
+        if add_noise:
+            from dataset_loader import add_gaussian_noise
+            train_data = np.array([add_gaussian_noise(img) for img in train_data])
+            val_data = np.array([add_gaussian_noise(img) for img in val_data])
+
+        # Budowa modelu
+        model = keras.Sequential([Input(shape=(img_size, img_size, 3))])
+        filters = 32
+        for _ in range(conv_layers):
+            model.add(layers.Conv2D(filters, (3, 3), activation=activation_function))
+            model.add(layers.MaxPooling2D(2, 2))
+            filters *= 2
+
+        model.add(layers.Flatten())
+        model.add(layers.Dense(128, activation=activation_function))
+        model.add(layers.Dense(len(CATEGORIES), activation='softmax'))
+
+        optimizer_mapping = {
+            "adam": keras.optimizers.Adam(),
+            "sgd": keras.optimizers.SGD(),
+            "rmsprop": keras.optimizers.RMSprop()
+        }
+
+        # Używamy odpowiedniego optymalizatora w zależności od przekazanej nazwy
+        optimizer = optimizer_mapping.get(optimizer_name.lower(), keras.optimizers.Adam())
+
+
+        model.compile(optimizer=optimizer, 
+                      loss='sparse_categorical_crossentropy', 
+                      metrics=['accuracy'])
+
+        early_stop_cb = CustomEarlyStopping(patience=PATIENCE)
+
+        history = model.fit(
+            train_data, train_labels,
             epochs=epochs,
-            num_train_images=DEFAULT_TRAIN_IMAGES,
-            num_val_images=DEFAULT_VAL_IMAGES,
-            dataset_json_path=dataset_json_path
+            validation_data=(val_data, val_labels),
+            batch_size=batch_size,
+            callbacks=[LoggingCallback(), early_stop_cb]
         )
 
-        # Wczytaj plik historii JSON ręcznie
-        history_path = current_model_path.with_suffix(".history.json")
-        if history_path.exists():
-            with open(history_path, "r", encoding="utf-8") as f:
-                hist_data = json.load(f)
-                acc = hist_data.get("test_results", {}).get("accuracy", 0)
-                acc_list.append(acc)
-                log(f"🎯 Accuracy testowe po run {i+1}: {acc:.2f}%")
-        else:
-            log(f"⚠️ Brak pliku historii dla run {i+1}")
+        end_time = time.time()
+        training_times.append(end_time - start_time)
 
+        # Zapisz model
+        current_model_path.parent.mkdir(parents=True, exist_ok=True)
+        model.save(current_model_path)
 
-    # Statystyki końcowe
+        # Ocena modelu
+        test_results = evaluate_model_on_paths(model, test_paths, CATEGORIES, img_size)
+        acc = test_results.get("accuracy", 0)
+        acc_list.append(acc)
+
+        log(f"🎯 Accuracy testowe po run {i+1}: {acc:.2f}%")
+
+        confusions.append(test_results.get("confusion_matrix", {}))
+        metrics_list.append(test_results.get("metrics_per_class", {}))
+
+        # Zapisz historię
+        history_data = {
+            "meta": {
+                "epochs": epochs,
+                "img_size": img_size,
+                "training_time_sec": end_time - start_time,
+                "num_train_images": len(train_data),
+                "num_val_images": len(val_data)
+            },
+            "history": history.history,
+            "test_results": test_results
+        }  
+        if early_stop_cb.early_stop_info:
+            history_data["early_stopping"] = early_stop_cb.early_stop_info
+        history_path = current_model_path.with_suffix('.history.json')
+        with open(history_path, 'w', encoding='utf-8') as f:
+            json.dump(history_data, f, indent=4)
+
+    # Statystyki po wszystkich runach
     if acc_list:
-        log("\n📊 Statystyki stabilności treningu:")
-        log(f"Średnia accuracy: {mean(acc_list):.2f}%")
-        log(f"Mediana accuracy: {median(acc_list):.2f}%")
-        if len(acc_list) > 1:
-            log(f"Odchylenie standardowe: {stdev(acc_list):.2f}")
+        mean_acc = mean(acc_list)
+        median_acc = median(acc_list)
+        std_acc = stdev(acc_list) if len(acc_list) > 1 else 0
+        avg_time = mean(training_times) if training_times else 0
+
+        # Oblicz średnią confusion matrix
+        avg_confusion = {cat: {c: 0 for c in CATEGORIES} for cat in CATEGORIES}
+        for confusion in confusions:
+            for true_cat in confusion:
+                for pred_cat in confusion[true_cat]:
+                    avg_confusion[true_cat][pred_cat] += confusion[true_cat][pred_cat]
+        for true_cat in avg_confusion:
+            for pred_cat in avg_confusion[true_cat]:
+                avg_confusion[true_cat][pred_cat] /= runs
+
+        # Oblicz średnie metryki jakości
+        avg_metrics = {cat: {k: 0 for k in ["recall", "specificity", "precision", "f1_score", "type1_error", "type2_error", "TP", "FP", "FN", "TN"]} for cat in CATEGORIES}
+        for metrics in metrics_list:
+            for cat in metrics:
+                for key in metrics[cat]:
+                    avg_metrics[cat][key] += metrics[cat][key]
+        for cat in avg_metrics:
+            for key in avg_metrics[cat]:
+                avg_metrics[cat][key] /= runs
+
+        # Przygotuj dane do zapisania
+        experiment_result = {
+            "resolution": f"{img_size}x{img_size}",
+            "noise": "yes" if add_noise else "no",
+            "conv_layers": conv_layers,
+            "activation": activation_function,
+            "optimizer": optimizer_name,
+            "batch_size": batch_size,
+            "mean_accuracy": round(mean_acc, 2),
+            "median_accuracy": round(median_acc, 2),
+            "std_dev_accuracy": round(std_acc, 2),
+            "avg_training_time_sec": round(avg_time, 2)
+        }
+
+        # Dodaj confusion matrix do zapisu
+        for true_cat in avg_confusion:
+            for pred_cat in avg_confusion[true_cat]:
+                key = f"{true_cat}_{pred_cat}"
+                experiment_result[key] = round(avg_confusion[true_cat][pred_cat], 2)
+
+        # Dodaj średnie metryki do zapisu
+        for cat in avg_metrics:
+            for metric_name in avg_metrics[cat]:
+                key = f"{cat}_{metric_name}"
+                experiment_result[key] = round(avg_metrics[cat][metric_name], 4)
+
+        # Zapisz wszystko
+        log_experiment(experiment_result)
+        log("✅ Wynik eksperymentu zapisany do CSV.")
 
     return acc_list
-
