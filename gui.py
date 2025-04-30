@@ -258,18 +258,18 @@ class ImageClassifierApp(QWidget):
         model_path_base = MODELS_DIR / self.model_path_input.text()
         dataset_path = model_path_base.with_suffix(".dataset.json")
 
-        batch_sizes = [8, 16, 64, 128]
+        img_sizes = [32,64, 256,512,1024]
 
-        for batch in batch_sizes:
-            self.append_to_history(f"\n🚀 Batch size: {batch}")
-            model_path = model_path_base.parent / f"batch{batch}.keras"
+        for img_size in img_sizes:
+            self.append_to_history(f"\n🖼️ Rozdzielczość obrazków: {img_size}x{img_size}")
+            model_path = model_path_base.parent / f"img{img_size}.keras"
             acc_values = repeat_training(
                 model_path_base=model_path,
                 dataset_json_path=dataset_path,
-                img_size=IMG_SIZE,
+                img_size=img_size,
                 runs=RUNS,
                 epochs=self.epochs_input.value(),
-                batch_size=batch,          # <-- tu dynamicznie zmieniamy!
+                batch_size=BATCH_SIZE,          
                 optimizer_name="adam",     # możesz zrobić osobno później
                 activation_function="relu",
                 conv_layers=3,
@@ -283,7 +283,8 @@ class ImageClassifierApp(QWidget):
                 self.append_to_history(f"   Mediana: {median(acc_values):.2f}%")
                 if len(acc_values) > 1:
                     self.append_to_history(f"   Odchylenie standardowe: {stdev(acc_values):.2f}")
-                plot_accuracy_statistics(acc_values)
+                    plot_path = model_path.with_suffix('.png')
+                    plot_accuracy_statistics(acc_values, save_path=plot_path)
         self.append_to_history("\n✅ Zakończono wszystkie eksperymenty.")
 
 

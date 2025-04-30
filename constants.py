@@ -19,4 +19,4 @@ DEFAULT_VAL_IMAGES = 1500
 DEFAULT_TRAIN_IMAGES = 13000
 MIN_DELTA = 0.01 #zmiana pogorszenia się walidacji aby zadziałał early stop
 RUNS = 20 # ilość powtórzeń trenowania modelu
-BATCH_SIZE = 32
+BATCH_SIZE = 16

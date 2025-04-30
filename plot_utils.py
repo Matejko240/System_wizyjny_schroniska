@@ -124,7 +124,7 @@ def get_training_plot_image(history_data):
     buf.seek(0)
     return Image.open(buf)
 
-def plot_accuracy_statistics(values):
+def plot_accuracy_statistics(values, save_path=None):
 
 
     runs = list(range(1, len(values) + 1))
@@ -146,5 +146,7 @@ def plot_accuracy_statistics(values):
     plt.tight_layout()
     plt.show(block=False)
     plt.pause(0.1)  # krótka pauza pozwala GUI dorysować wykres
-
+    if save_path:
+        plt.savefig(save_path, dpi=300)  # zapis do pliku jeśli podano ścieżkę
+        print(f"Zapisano wykres do pliku: {save_path}")
 
