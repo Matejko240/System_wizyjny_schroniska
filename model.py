@@ -255,7 +255,8 @@ def repeat_training(
         optimizer_mapping = {
             "adam": keras.optimizers.Adam(),
             "sgd": keras.optimizers.SGD(),
-            "rmsprop": keras.optimizers.RMSprop()
+            "rmsprop": keras.optimizers.RMSprop(),
+            "adagrad": keras.optimizers.Adagrad()
         }
 
         # Używamy odpowiedniego optymalizatora w zależności od przekazanej nazwy

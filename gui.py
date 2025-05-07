@@ -257,37 +257,75 @@ class ImageClassifierApp(QWidget):
     def run_repeat_training(self):
         model_path_base = MODELS_DIR / self.model_path_input.text()
         dataset_path = model_path_base.with_suffix(".dataset.json")
-
-        img_sizes = [32,64, 256,512,1024]
-
-        for img_size in img_sizes:
-            self.append_to_history(f"\n🖼️ Rozdzielczość obrazków: {img_size}x{img_size}")
-            model_path = model_path_base.parent / f"img{img_size}.keras"
+        # optimizers = ["adagrad"]
+        # activations = [ "tanh", "elu"]
+        conv_layer_counts = [5]
+        """
+            # Test 1: różne optimizery
+        for optimizer in optimizers:
+            self.append_to_history(f"\n⚙️ Test optimizer: {optimizer}")
+            model_path = model_path_base.parent / f"opt_{optimizer}.keras"
             acc_values = repeat_training(
                 model_path_base=model_path,
                 dataset_json_path=dataset_path,
-                img_size=img_size,
+                img_size=IMG_SIZE,
                 runs=RUNS,
                 epochs=self.epochs_input.value(),
-                batch_size=BATCH_SIZE,          
-                optimizer_name="adam",     # możesz zrobić osobno później
+                batch_size=BATCH_SIZE,
+                optimizer_name=optimizer,
                 activation_function="relu",
                 conv_layers=3,
                 add_noise=False
             )
+            self._log_stats(acc_values, model_path)
+        """
 
-
-            if acc_values:
-                self.append_to_history("📉 Stabilność po trenowaniu:")
-                self.append_to_history(f"   Średnia: {mean(acc_values):.2f}%")
-                self.append_to_history(f"   Mediana: {median(acc_values):.2f}%")
-                if len(acc_values) > 1:
-                    self.append_to_history(f"   Odchylenie standardowe: {stdev(acc_values):.2f}")
-                    plot_path = model_path.with_suffix('.png')
-                    plot_accuracy_statistics(acc_values, save_path=plot_path)
+        # Test 3: różna liczba warstw
+        for conv_layers in conv_layer_counts:
+            self.append_to_history(f"\n🏗️ Test conv_layers: {conv_layers}")
+            model_path = model_path_base.parent / f"layers_{conv_layers}.keras"
+            acc_values = repeat_training(
+                model_path_base=model_path,
+                dataset_json_path=dataset_path,
+                img_size=IMG_SIZE,
+                runs=RUNS,
+                epochs=self.epochs_input.value(),
+                batch_size=BATCH_SIZE,
+                optimizer_name="adam",
+                activation_function="relu",
+                conv_layers=conv_layers,
+                add_noise=False
+            )
+            self._log_stats(acc_values, model_path)
+            
+        self.append_to_history(f"\nTest Gause Noise")
+        model_path = model_path_base.parent / f"Noise.keras"
+        acc_values = repeat_training(
+                model_path_base=model_path,
+                dataset_json_path=dataset_path,
+                img_size=IMG_SIZE,
+                runs=RUNS,
+                epochs=self.epochs_input.value(),
+                batch_size=BATCH_SIZE,
+                optimizer_name="adam",
+                activation_function="relu",
+                conv_layers=CONV_LAYERS,
+                add_noise=True
+            )
+        self._log_stats(acc_values, model_path)
         self.append_to_history("\n✅ Zakończono wszystkie eksperymenty.")
 
-
+    # pomocnicza metoda do wypisywania wyników
+    def _log_stats(self, acc_values, model_path):
+        if acc_values:
+            self.append_to_history("📉 Stabilność po trenowaniu:")
+            self.append_to_history(f"   Średnia: {mean(acc_values):.2f}%")
+            self.append_to_history(f"   Mediana: {median(acc_values):.2f}%")
+            if len(acc_values) > 1:
+                self.append_to_history(f"   Odchylenie standardowe: {stdev(acc_values):.2f}")
+                plot_path = model_path.with_suffix('.png')
+                plot_accuracy_statistics(acc_values, save_path=plot_path)
+                
     def show_statistics(self, results):
         total = len(results)
         correct = sum(1 for _, actual, predicted, _ in results if actual == predicted)
