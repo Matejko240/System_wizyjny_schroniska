@@ -213,7 +213,7 @@ def repeat_training(
 
         current_model_path = model_path_base.with_stem(f"{model_path_base.stem}_run{i+1}")
         start_time = time.time()
-
+        """
         # Przygotowanie danych
         if dataset_json_path and Path(dataset_json_path).exists():
             sets = load_dataset_paths(dataset_json_path)
@@ -226,6 +226,10 @@ def repeat_training(
             test_paths = train_unused + val_unused
             if dataset_json_path:
                 save_dataset_paths(train_paths, val_paths, test_paths, dataset_json_path)
+        """
+        train_paths, train_unused = get_balanced_subset_and_remainder(TRAIN_PATH, DEFAULT_TRAIN_IMAGES)
+        val_paths, val_unused = get_balanced_subset_and_remainder(VAL_PATH, DEFAULT_VAL_IMAGES)
+        test_paths = train_unused + val_unused
 
         train_data, train_labels = load_from_paths(train_paths, CATEGORIES, img_size)
         val_data, val_labels = load_from_paths(val_paths, CATEGORIES, img_size)

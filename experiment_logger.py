@@ -1,7 +1,7 @@
 import csv
 from pathlib import Path
 
-def log_experiment(result_dict, file_path="experiments_results.csv"):
+def log_experiment(result_dict, file_path="experiments_results_3_Best.csv"):
     file_path = Path(file_path)
     file_exists = file_path.exists()
 

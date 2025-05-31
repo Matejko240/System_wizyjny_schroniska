@@ -259,59 +259,59 @@ class ImageClassifierApp(QWidget):
         dataset_path = model_path_base.with_suffix(".dataset.json")
         # optimizers = ["adagrad"]
         # activations = [ "tanh", "elu"]
-        conv_layer_counts = [5]
-        """
-            # Test 1: różne optimizery
-        for optimizer in optimizers:
-            self.append_to_history(f"\n⚙️ Test optimizer: {optimizer}")
-            model_path = model_path_base.parent / f"opt_{optimizer}.keras"
-            acc_values = repeat_training(
-                model_path_base=model_path,
-                dataset_json_path=dataset_path,
-                img_size=IMG_SIZE,
-                runs=RUNS,
-                epochs=self.epochs_input.value(),
-                batch_size=BATCH_SIZE,
-                optimizer_name=optimizer,
-                activation_function="relu",
-                conv_layers=3,
-                add_noise=False
-            )
-            self._log_stats(acc_values, model_path)
-        """
+        # conv_layer_counts = [5]
 
-        # Test 3: różna liczba warstw
-        for conv_layers in conv_layer_counts:
-            self.append_to_history(f"\n🏗️ Test conv_layers: {conv_layers}")
-            model_path = model_path_base.parent / f"layers_{conv_layers}.keras"
-            acc_values = repeat_training(
-                model_path_base=model_path,
-                dataset_json_path=dataset_path,
-                img_size=IMG_SIZE,
-                runs=RUNS,
-                epochs=self.epochs_input.value(),
-                batch_size=BATCH_SIZE,
-                optimizer_name="adam",
-                activation_function="relu",
-                conv_layers=conv_layers,
-                add_noise=False
-            )
-            self._log_stats(acc_values, model_path)
-            
-        self.append_to_history(f"\nTest Gause Noise")
-        model_path = model_path_base.parent / f"Noise.keras"
+
+        # Fast model
+        self.append_to_history(f"\n🏗️ Test conv_layers: fast")
+        model_path = model_path_base.parent / f"fast_model.keras"
         acc_values = repeat_training(
                 model_path_base=model_path,
                 dataset_json_path=dataset_path,
-                img_size=IMG_SIZE,
+                img_size=32,
                 runs=RUNS,
                 epochs=self.epochs_input.value(),
-                batch_size=BATCH_SIZE,
+                batch_size=8,
                 optimizer_name="adam",
                 activation_function="relu",
-                conv_layers=CONV_LAYERS,
+                conv_layers=1,
                 add_noise=True
             )
+
+        self._log_stats(acc_values, model_path)
+            
+        # Best accuracy model
+        self.append_to_history(f"\n🏗️ Test best accuracy model")
+        model_path = model_path_base.parent / f"best_accuracy_model.keras"
+        acc_values = repeat_training(
+            model_path_base=model_path,
+            dataset_json_path=dataset_path,
+            img_size=128,
+            runs=RUNS,
+            epochs=self.epochs_input.value(),
+            batch_size=2048,
+            optimizer_name="adam",
+            activation_function="relu",
+            conv_layers=5,
+            add_noise=False
+        )
+        self._log_stats(acc_values, model_path)
+
+        # Optimal model
+        self.append_to_history(f"\n🏗️ Test optimal model")
+        model_path = model_path_base.parent / f"optimal_model.keras"
+        acc_values = repeat_training(
+            model_path_base=model_path,
+            dataset_json_path=dataset_path,
+            img_size=64,
+            runs=RUNS,
+            epochs=self.epochs_input.value(),
+            batch_size=16,
+            optimizer_name="adam",
+            activation_function="relu",
+            conv_layers=3,
+            add_noise=False
+        )
         self._log_stats(acc_values, model_path)
         self.append_to_history("\n✅ Zakończono wszystkie eksperymenty.")
 
